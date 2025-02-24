@@ -22,3 +22,12 @@ const advocates = pgTable("advocates", {
 });
 
 export { advocates };
+export type Advocate = Omit<typeof advocates.$inferSelect, "specialties"> & {
+  specialties: string[];
+};
+export type AdvocatePaginatedData = {
+  results: Advocate[];
+  page: string;
+  totalCount: number;
+  totalPages: number;
+};
