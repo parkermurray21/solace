@@ -33,6 +33,7 @@ export default function AdvocateDialog({
     setOpenSchedule(false);
   };
 
+  const google_key = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
   return (
     <>
       <Dialog open={Boolean(advocate)} onClose={onClose}>
@@ -48,7 +49,7 @@ export default function AdvocateDialog({
               </span>
             </div>
           ) : (
-            "Provider Details"
+            "Advocate Details"
           )}
         </DialogTitle>
         <DialogContent dividers>
@@ -83,9 +84,9 @@ export default function AdvocateDialog({
                     height="200"
                     frameBorder="0"
                     style={{ border: 0 }}
-                    src={`https://www.google.com/maps/embed/v1/place?key=${
-                      process.env.GOOGLE_API_KEY
-                    }&q=${encodeURIComponent(advocate.city)}`}
+                    src={`https://www.google.com/maps/embed/v1/place?key=${google_key}&q=${encodeURIComponent(
+                      advocate.city
+                    )}`}
                     allowFullScreen
                   ></iframe>
                 </div>
@@ -102,7 +103,6 @@ export default function AdvocateDialog({
           )}
         </DialogActions>
       </Dialog>
-      {/* Render the scheduling dialog. It will open on top of the AdvocateDialog */}
       {advocate && (
         <ScheduleDialog
           advocateId={advocate.id}

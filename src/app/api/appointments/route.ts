@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { createAppointment } from "../services/appointmentsService";
-import { advocateData } from "@/db/seed/advocates";
 
 const AppointmentSchema = z.object({
   advocateId: z.number(),
@@ -8,7 +7,6 @@ const AppointmentSchema = z.object({
   lastName: z.string().min(1, { message: "Last name is required" }),
   phone: z.string().optional(),
   email: z.string().email({ message: "Invalid email address" }),
-  // selectedAppointment is expected to be a string that can be parsed into a Date.
   selectedAppointment: z
     .string()
     .min(1, { message: "Appointment time is required" }),
@@ -29,7 +27,6 @@ export async function POST(request: Request) {
     }
 
     const appointmentData = validationResult.data;
-    // Call our service to create the appointment.
     const newAppointment = await createAppointment(appointmentData);
 
     return Response.json({ success: true, appointment: newAppointment });

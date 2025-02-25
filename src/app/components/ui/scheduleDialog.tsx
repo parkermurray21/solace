@@ -13,6 +13,8 @@ import {
   InputLabel,
   FormControl,
 } from "@mui/material";
+import { useAppointmentAvailability } from "../../hooks/useAppointmentAvailability";
+import { usePostAppointment } from "../../hooks/usePostAppointment";
 
 export interface AppointmentData {
   advocateId: number;
@@ -30,60 +32,19 @@ interface AppointmentDialogProps {
   advocateId: number;
 }
 
-const postAppointmentRequest = async (data: AppointmentData): Promise<any> => {
-  const response = await fetch("/api/appointments", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  if (!response.ok) {
-    throw new Error("Failed to post appointment request");
-  }
-  return response.json();
-};
-
-export function useCustomMutation<T, V = void, E = Error>(
-  mutationFn: (variables: V) => Promise<T>
-) {
-  const [data, setData] = useState<T | null>(null);
-  const [error, setError] = useState<E | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-
-  const mutate = async (variables: V) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const result = await mutationFn(variables);
-      setData(result);
-      return result;
-    } catch (err: any) {
-      setError(err);
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  return { data, error, isLoading, mutate };
-}
-
 function formatAppointment(appointment: Date): string {
-  // Format date part (e.g., "Mon Feb 24 2025")
   const datePart = appointment.toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
     day: "numeric",
     year: "numeric",
   });
-
-  // Format time part in 12-hour format with am/pm
   let hours = appointment.getHours();
   const minutes = appointment.getMinutes();
   const ampm = hours >= 12 ? "pm" : "am";
   hours = hours % 12;
   if (hours === 0) hours = 12;
   const minuteStr = minutes.toString().padStart(2, "0");
-
   return `${datePart} ${hours}:${minuteStr}${ampm}`;
 }
 
@@ -99,45 +60,13 @@ const AppointmentDialog: React.FC<AppointmentDialogProps> = ({
   const [selectedAppointment, setSelectedAppointment] = useState("");
   const [notes, setNotes] = useState("");
 
-  // State for fetched availability slots.
-  const [availability, setAvailability] = useState<Date[]>([]);
-  const [availabilityLoading, setAvailabilityLoading] = useState<boolean>(true);
-  const [availabilityError, setAvailabilityError] = useState<string | null>(
-    null
-  );
+  const {
+    availability,
+    isLoading: availabilityLoading,
+    error: availabilityError,
+  } = useAppointmentAvailability(advocateId, open);
 
-  // Fetch availability when the dialog opens or advocateId changes.
-  useEffect(() => {
-    async function fetchAvailability() {
-      setAvailabilityLoading(true);
-      setAvailabilityError(null);
-      try {
-        const res = await fetch(`/api/availability?advocateId=${advocateId}`);
-        const json = await res.json();
-        if (!res.ok || !json.success) {
-          setAvailabilityError(json.error || "Failed to fetch availability");
-          setAvailability([]);
-        } else {
-          // Assuming the API returns an array of ISO date strings.
-          const slots: Date[] = json.availability.map(
-            (slot: string) => new Date(slot)
-          );
-          setAvailability(slots);
-        }
-      } catch (err: any) {
-        setAvailabilityError(err.message);
-      } finally {
-        setAvailabilityLoading(false);
-      }
-    }
-    if (open) {
-      fetchAvailability();
-    }
-  }, [open, advocateId]);
-
-  const { mutate, isLoading, error } = useCustomMutation<any, AppointmentData>(
-    postAppointmentRequest
-  );
+  const { mutate, isLoading, error } = usePostAppointment();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,7 +80,7 @@ const AppointmentDialog: React.FC<AppointmentDialogProps> = ({
         selectedAppointment,
         notes,
       });
-      // Reset fields and close dialog on success.
+
       setFirstName("");
       setLastName("");
       setPhone("");
