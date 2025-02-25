@@ -1,4 +1,4 @@
-import db from "../../../db"; // your configured Drizzle ORM instance
+import db from "../../../db";
 import {} from "drizzle-orm/expressions";
 import { InferSelectModel, count, sql, or, ilike } from "drizzle-orm";
 import { advocates } from "../../../db/schema";
@@ -31,6 +31,7 @@ export async function getPaginatedAdvocates(
         ilike(advocates.lastName, searchPattern),
         ilike(advocates.city, searchPattern),
         ilike(advocates.degree, searchPattern),
+        sql`CONCAT("first_name", ' ', "last_name") ILIKE ${searchPattern}`,
         sql`CAST("years_of_experience" AS text) ILIKE ${searchPattern}`,
         sql`CAST("payload" AS text) ILIKE ${searchPattern}`,
         sql`CAST("phone_number" AS text) ILIKE ${searchPattern}`

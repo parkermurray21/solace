@@ -14,14 +14,129 @@ import {
   TableRow,
 } from "./components/ui/table";
 import { AlertCircle, ArrowUpDown } from "lucide-react";
+import Chip from "@mui/material/Chip";
 import { Advocate, AdvocatePaginatedData } from "@/db/schema";
+import AdvocateDialog from "./components/ui/advocateDialog";
+
+export default function AdvocatesPage() {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchInput, setSearchInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedAdvocate, setSelectedAdvocate] = useState<Advocate | null>(
+    null
+  );
+
+  // Update query key whenever currentPage or searchQuery changes.
+  const queryKey = useMemo(
+    () => [
+      `/api/advocates?page=${currentPage}&search=${encodeURIComponent(
+        searchQuery
+      )}`,
+    ],
+    [currentPage, searchQuery]
+  );
+
+  const {
+    data: paginatedAdvocateData,
+    isLoading,
+    error,
+  } = useQuery<AdvocatePaginatedData>({
+    queryKey,
+  });
+
+  const handlePrev = () => {
+    setCurrentPage((prev) => Math.max(prev - 1, 1));
+  };
+
+  const handleNext = () => {
+    if (
+      paginatedAdvocateData &&
+      currentPage < paginatedAdvocateData.totalPages
+    ) {
+      setCurrentPage((prev) => prev + 1);
+    }
+  };
+
+  const handleSearchSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setCurrentPage(1);
+    setSearchQuery(searchInput);
+  };
+
+  return (
+    <>
+      <div className="container mx-auto py-8 px-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-2xl font-bold text-primary">
+              Medical Providers Directory
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form
+              onSubmit={handleSearchSubmit}
+              className="mb-4 flex items-center gap-2"
+            >
+              <Input
+                placeholder="Search by name, city, or specialty..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                className="max-w-sm"
+              />
+              <Button type="submit">Search</Button>
+            </form>
+            {isLoading && <LoadingSkeleton />}
+            {error && (
+              <div className="flex items-center gap-2 text-destructive">
+                <AlertCircle className="h-5 w-5" />
+                <p>Failed to load providers</p>
+              </div>
+            )}
+            {paginatedAdvocateData && (
+              <>
+                <AdvocateTable
+                  advocates={paginatedAdvocateData.results}
+                  onRowClick={setSelectedAdvocate}
+                />
+                <div className="mt-4 flex items-center justify-between">
+                  <Button onClick={handlePrev} disabled={currentPage === 1}>
+                    Previous
+                  </Button>
+                  <span>
+                    Page {currentPage} of {paginatedAdvocateData.totalPages}
+                  </span>
+                  <Button
+                    onClick={handleNext}
+                    disabled={currentPage === paginatedAdvocateData.totalPages}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <AdvocateDialog
+        advocate={selectedAdvocate}
+        onClose={() => setSelectedAdvocate(null)}
+      />
+    </>
+  );
+}
 
 type SortConfig = {
   key: keyof Advocate | null;
   direction: "asc" | "desc";
 };
 
-function AdvocateTable({ advocates }: { advocates: Advocate[] }) {
+interface AdvocateTableProps {
+  advocates: Advocate[];
+  onRowClick: (advocate: Advocate) => void;
+}
+
+function AdvocateTable({ advocates, onRowClick }: AdvocateTableProps) {
   // Sorting is handled locally within the table.
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     key: null,
@@ -90,15 +205,27 @@ function AdvocateTable({ advocates }: { advocates: Advocate[] }) {
       </TableHeader>
       <TableBody>
         {sortedAdvocates.map((advocate) => (
-          <TableRow key={advocate.id}>
+          <TableRow
+            key={advocate.id}
+            onClick={() => onRowClick(advocate)}
+            className="cursor-pointer hover:bg-gray-100"
+          >
             <TableCell className="font-medium">
               {advocate.firstName} {advocate.lastName}
             </TableCell>
             <TableCell>{advocate.city}</TableCell>
             <TableCell>{advocate.degree}</TableCell>
-            <TableCell>{advocate.specialties.join(", ")}</TableCell>
+            <TableCell>
+              <div className="flex flex-wrap gap-2">
+                {advocate.specialties.map((specialty, idx) => (
+                  <Chip key={idx} label={specialty} size="small" />
+                ))}
+              </div>
+            </TableCell>
             <TableCell>{advocate.yearsOfExperience} years</TableCell>
-            <TableCell>{advocate.phoneNumber}</TableCell>
+            <TableCell style={{ whiteSpace: "nowrap" }}>
+              {formatPhoneNumber(advocate.phoneNumber)}
+            </TableCell>
           </TableRow>
         ))}
       </TableBody>
@@ -118,7 +245,17 @@ function LoadingSkeleton() {
   );
 }
 
-// Custom hook to fetch data based on a dynamic query key.
+function formatPhoneNumber(phone: number): string {
+  const phoneStr = phone.toString();
+  if (phoneStr.length === 10) {
+    const areaCode = phoneStr.substring(0, 3);
+    const centralOffice = phoneStr.substring(3, 6);
+    const lineNumber = phoneStr.substring(6);
+    return `(${areaCode}) ${centralOffice}-${lineNumber}`;
+  }
+  return phoneStr;
+}
+
 function useQuery<T>({ queryKey }: { queryKey: string[] }): {
   data: T | null;
   isLoading: boolean;
@@ -155,101 +292,4 @@ function useQuery<T>({ queryKey }: { queryKey: string[] }): {
   }, [queryKey]);
 
   return { data, isLoading, error };
-}
-
-export default function ProvidersPage() {
-  // Track current page and search term in ProvidersPage.
-  const [currentPage, setCurrentPage] = useState(1);
-  const [searchInput, setSearchInput] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-
-  // Update query key whenever currentPage or searchQuery changes.
-  const queryKey = useMemo(
-    () => [
-      `/api/advocates?page=${currentPage}&search=${encodeURIComponent(
-        searchQuery
-      )}`,
-    ],
-    [currentPage, searchQuery]
-  );
-
-  const {
-    data: paginatedAdvocateData,
-    isLoading,
-    error,
-  } = useQuery<AdvocatePaginatedData>({
-    queryKey,
-  });
-
-  const handlePrev = () => {
-    setCurrentPage((prev) => Math.max(prev - 1, 1));
-  };
-
-  const handleNext = () => {
-    if (
-      paginatedAdvocateData &&
-      currentPage < paginatedAdvocateData.totalPages
-    ) {
-      setCurrentPage((prev) => prev + 1);
-    }
-  };
-
-  // When the user submits the search form, update searchQuery (and reset to page 1).
-  const handleSearchSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setCurrentPage(1);
-    setSearchQuery(searchInput);
-  };
-
-  return (
-    <div className="container mx-auto py-8 px-4">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold text-primary">
-            Medical Providers Directory
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form
-            onSubmit={handleSearchSubmit}
-            className="mb-4 flex items-center gap-2"
-          >
-            <Input
-              placeholder="Search by name, city, or specialty..."
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              className="max-w-sm"
-            />
-            <Button type="submit">Search</Button>
-          </form>
-          {isLoading && <LoadingSkeleton />}
-          {error && (
-            <div className="flex items-center gap-2 text-destructive">
-              <AlertCircle className="h-5 w-5" />
-              <p>Failed to load providers</p>
-            </div>
-          )}
-          {paginatedAdvocateData && (
-            <>
-              <AdvocateTable advocates={paginatedAdvocateData.results} />
-              <div className="mt-4 flex items-center justify-between">
-                <Button onClick={handlePrev} disabled={currentPage === 1}>
-                  Previous
-                </Button>
-                <span>
-                  Page {currentPage} of {paginatedAdvocateData.totalPages}
-                </span>
-                <Button
-                  onClick={handleNext}
-                  disabled={currentPage === paginatedAdvocateData.totalPages}
-                >
-                  Next
-                </Button>
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
 }

@@ -21,6 +21,21 @@ const advocates = pgTable("advocates", {
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
+export const appointments = pgTable("appointments", {
+  id: serial("id").primaryKey(),
+  advocateId: integer("advocate_id")
+    .notNull()
+    .references(() => advocates.id),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  phone: text("phone"),
+  email: text("email").notNull(),
+  appointmentTime: timestamp("appointment_time").notNull(),
+  notes: text("notes"),
+  schedulingStatus: text("scheduling_status"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export { advocates };
 export type Advocate = Omit<typeof advocates.$inferSelect, "specialties"> & {
   specialties: string[];
