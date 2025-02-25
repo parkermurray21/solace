@@ -1,91 +1,119 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
+import { Skeleton } from "./components/ui/skeleton";
+import { Input } from "./components/ui/input";
+import { Button } from "./components/ui/button";
+import { AlertCircle } from "lucide-react";
+import { Advocate } from "@/db/schema";
+import AdvocateDialog from "./components/ui/advocateDialog";
+import { usePaginatedAdvocates } from "./hooks/usePaginatedAdvocates";
+import AdvocateTable from "./components/ui/advocateTable";
 
-export default function Home() {
-  const [advocates, setAdvocates] = useState([]);
-  const [filteredAdvocates, setFilteredAdvocates] = useState([]);
+export default function AdvocatesPage() {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchInput, setSearchInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedAdvocate, setSelectedAdvocate] = useState<Advocate | null>(
+    null
+  );
 
   useEffect(() => {
-    console.log("fetching advocates...");
-    fetch("/api/advocates").then((response) => {
-      response.json().then((jsonResponse) => {
-        setAdvocates(jsonResponse.data);
-        setFilteredAdvocates(jsonResponse.data);
-      });
-    });
-  }, []);
+    const timeoutId = setTimeout(() => {
+      setCurrentPage(1);
+      setSearchQuery(searchInput);
+    }, 300);
 
-  const onChange = (e) => {
-    const searchTerm = e.target.value;
+    return () => clearTimeout(timeoutId);
+  }, [searchInput]);
 
-    document.getElementById("search-term").innerHTML = searchTerm;
+  const {
+    data: paginatedAdvocateData,
+    isLoading,
+    error,
+  } = usePaginatedAdvocates(currentPage, searchQuery);
 
-    console.log("filtering advocates...");
-    const filteredAdvocates = advocates.filter((advocate) => {
-      return (
-        advocate.firstName.includes(searchTerm) ||
-        advocate.lastName.includes(searchTerm) ||
-        advocate.city.includes(searchTerm) ||
-        advocate.degree.includes(searchTerm) ||
-        advocate.specialties.includes(searchTerm) ||
-        advocate.yearsOfExperience.includes(searchTerm)
-      );
-    });
-
-    setFilteredAdvocates(filteredAdvocates);
+  const handlePrev = () => {
+    setCurrentPage((prev) => Math.max(prev - 1, 1));
   };
 
-  const onClick = () => {
-    console.log(advocates);
-    setFilteredAdvocates(advocates);
+  const handleNext = () => {
+    if (
+      paginatedAdvocateData &&
+      currentPage < paginatedAdvocateData.totalPages
+    ) {
+      setCurrentPage((prev) => prev + 1);
+    }
   };
 
   return (
-    <main style={{ margin: "24px" }}>
-      <h1>Solace Advocates</h1>
-      <br />
-      <br />
-      <div>
-        <p>Search</p>
-        <p>
-          Searching for: <span id="search-term"></span>
-        </p>
-        <input style={{ border: "1px solid black" }} onChange={onChange} />
-        <button onClick={onClick}>Reset Search</button>
+    <>
+      <div className="container mx-auto py-8 px-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-2xl font-bold text-primary">
+              Advocates Directory
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-4 flex items-center gap-2">
+              <Input
+                placeholder="Search by name, city, or specialty..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                className="max-w-sm"
+              />
+            </div>
+            {isLoading && <LoadingSkeleton />}
+            {error && (
+              <div className="flex items-center gap-2 text-destructive">
+                <AlertCircle className="h-5 w-5" />
+                <p>Failed to load providers</p>
+              </div>
+            )}
+            {paginatedAdvocateData && (
+              <>
+                <AdvocateTable
+                  advocates={paginatedAdvocateData.results}
+                  onRowClick={setSelectedAdvocate}
+                />
+                <div className="mt-4 flex items-center justify-between">
+                  <Button onClick={handlePrev} disabled={currentPage === 1}>
+                    Previous
+                  </Button>
+                  <span>
+                    Page {currentPage} of {paginatedAdvocateData.totalPages}
+                  </span>
+                  <Button
+                    onClick={handleNext}
+                    disabled={currentPage === paginatedAdvocateData.totalPages}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
       </div>
-      <br />
-      <br />
-      <table>
-        <thead>
-          <th>First Name</th>
-          <th>Last Name</th>
-          <th>City</th>
-          <th>Degree</th>
-          <th>Specialties</th>
-          <th>Years of Experience</th>
-          <th>Phone Number</th>
-        </thead>
-        <tbody>
-          {filteredAdvocates.map((advocate) => {
-            return (
-              <tr>
-                <td>{advocate.firstName}</td>
-                <td>{advocate.lastName}</td>
-                <td>{advocate.city}</td>
-                <td>{advocate.degree}</td>
-                <td>
-                  {advocate.specialties.map((s) => (
-                    <div>{s}</div>
-                  ))}
-                </td>
-                <td>{advocate.yearsOfExperience}</td>
-                <td>{advocate.phoneNumber}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </main>
+
+      <AdvocateDialog
+        advocate={selectedAdvocate}
+        onClose={() => setSelectedAdvocate(null)}
+      />
+    </>
+  );
+}
+
+function LoadingSkeleton() {
+  return (
+    <div className="space-y-3">
+      <Skeleton className="h-10 w-[300px]" />
+      <Skeleton className="h-8 w-full" />
+      {[1, 2, 3].map((i) => (
+        <Skeleton key={i} className="h-16 w-full" />
+      ))}
+    </div>
   );
 }
